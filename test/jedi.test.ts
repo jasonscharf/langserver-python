@@ -1,11 +1,11 @@
 import * as mocha from "mocha";
 import * as chai from "chai";
-import * as constants from "./../src/constants";
-import * as utils from "./../src/utils";
+import * as constants from "./harness/constants";
+import * as utils from "./harness/utils";
 
 import assert = require("assert");
 
-const log = utils.getLogger();
+const log = utils.getLogger("test.jedi");
 const getResults = (line: number, col: number, type = "hover", path = "./test/data/rutabaga.py") => {
 	return utils.execFile(constants.Python.DEFAULT_PYTHON3_PATH, [
 		constants.Python.LANGSERVER_PATH,

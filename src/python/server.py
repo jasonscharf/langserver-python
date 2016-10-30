@@ -6,29 +6,26 @@ import json
 import sys
 import os
 
+import transports
+import constants
 from jsonrpc import dispatcher
 from utils import echo
-from document import Document
-from workspace import Workspace
-
-# Stdio and socket based transport mechanisms
-import transports
-
-# Constants
-import constants
-import globals
-
-# Global vars
-from globals import workspace
-
-# LSP handlers
 from handlers import preinit, initialize, didOpen, hover, definition, references
 
 
 def serve(args):
-	mode = "sockets"
+	if args.stdio:
+		mode = "stdio"
+	else:
+		mode = "sockets";
 
-	if mode == "sockets":
+	if mode == "stdio":
+		echo("Python language server using stdio transport...")
+		server = transports.StdioTransport()
+		while True:
+			server.handle(sys.stdin, sys.stdout)
+
+	elif mode == "sockets":
 		echo("Python language server listening on {}:{}".format(args.host, args.port))
 		host = args.host
 		port = int(args.port)
@@ -40,11 +37,6 @@ def serve(args):
 		except KeyboardInterrupt:
 			server.shutdown()
 			sys.exit()
-
-	elif mode == "stdio":
-		server = transports.StdioTransport()
-		while True:
-			server.handle(sys.stdin, sys.stdout)
 
 	else:
 		echo("Invalid mode '{}'".format(mode))
@@ -92,6 +84,7 @@ def main():
 
 	# Server mode args
 	server_parser.add_argument("--pre", help='', default="none")
+	server_parser.add_argument("--stdio", action='store_true', help='Runs the server over stdio', default=False)
 	server_parser.add_argument("--host", help='The port to host the language server on', nargs='?', default=constants.default_host)
 	server_parser.add_argument("--port", help='The hostname to listen on', nargs='?', default=constants.default_port)
 	server_parser.set_defaults(func=serve)

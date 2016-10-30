@@ -6,9 +6,6 @@ import {
 } from "vscode-languageserver";
 
 
-import { SourceSnapshot } from "./../models/SourceSnapshot";
-
-
 export interface LanguageServerArgs {
 	workspaceRoot: string;
 	documents: TextDocuments;
@@ -24,8 +21,6 @@ export const enum LanguageServerState {
 // TODO: Sync w/ IConnection
 // TODO: workspace/symbols + shutdown 
 export interface LanguageServer {
-	getPosFromLineCharPair(source: SourceSnapshot, line: number, char: number): number;
-	getWorkspaceSources(): SourceSnapshot[]
 
 	// Actual LSP methods
 	onInitialize(params): InitializeResult;

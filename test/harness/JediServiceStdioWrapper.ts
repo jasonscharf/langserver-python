@@ -1,14 +1,12 @@
-
 import * as child_process from "child_process";
 import * as Promise from "bluebird";
 import * as net from "net";
-import * as readline from "readline";
-import * as constants from "./../../constants";
-import * as utils from "./../../utils";
 
+import * as constants from "./constants";
+import * as utils from "./utils2";
 import { JediResponse } from "./protocol";
-import { LanguageServer } from "./../../lang-server/LanguageServer";
-import { SourceSnapshot } from "./../../models/SourceSnapshot";
+import { LanguageServer } from "./LanguageServer";
+
 
 const log = utils.getLogger("LSW");
 const pylog = utils.getLogger("PY");
@@ -167,7 +165,7 @@ export class JediServiceStdioWrapper {
 			}
 
 			log(`Spawning Jedi process...`);
-			this._langserverProc = child_process.spawn(constants.Python.DEFAULT_PYTHON3_PATH, ["-u", constants.Python.LANGSERVER_PATH, "serve"]);
+			this._langserverProc = child_process.spawn(constants.Python.DEFAULT_PYTHON3_PATH, ["-u", constants.Python.LANGSERVER_PATH, "serve", "--stdio"]);
 
 			// TODO: IMPORTANT: This is uber gross. Wait for a stream readable event or something.
 			setTimeout(resolve, 250);

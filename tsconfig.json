@@ -3,8 +3,7 @@
 		"target": "es5",
 		"lib": ["es6"],
 		"module": "commonjs",
-		"sourceMap": true,
-		"outDir": "../vscode-client/server"
+		"sourceMap": true
 	},
 	"exclude": [
 		"node_modules"

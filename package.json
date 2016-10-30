@@ -37,7 +37,6 @@
     "update-vscode": "node ./node_modules/vscode/bin/install",
     "compile": "installServerIntoExtension ../vscode-client ./package.json ./tsconfig.json && tsc -p .",
     "watch": "installServerIntoExtension ../vscode-client ./package.json ./tsconfig.json && tsc --watch -p .",
-    "test": "mocha --recursive ../vscode-client/server/test/*.js",
-    "test-harness": "mocha --recursive -g harness ../vscode-client/server/test/*.js"
+    "test": "mocha --recursive test/*.js"
   }
 }

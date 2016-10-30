@@ -1,4 +1,3 @@
-
 // TODO: Review or reconcile (replace) with proper JSON-RPC or VS code typings
 export interface JediMessage<T> {
 	id?: number;

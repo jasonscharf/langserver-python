@@ -2,46 +2,17 @@ import * as Promise from "bluebird";
 import * as mocha from "mocha";
 import * as chai from "chai";
 import * as fs from "fs";
-import * as utils from "./../src/utils";
-import * as constants from "./../src/constants";
-
 import { InitializeParams, InitializeResult, DidOpenTextDocumentParams } from "vscode-languageserver";
-import { JediHarness } from "./../src/lang/python/JediHarness";
-import { JediMessage } from "./../src/lang/python/protocol";
 
+import * as constants from "./harness/constants";
+import { JediHarness } from "./harness/JediHarness";
+import { JediMessage } from "./harness/protocol";
+import { getLogger, getHarness, getInitParams, didOpenTextDocument } from "./harness/utils";
 
 import assert = require("assert");
 
-const didOpenTextDocument: DidOpenTextDocumentParams = {
-	textDocument: {
-		uri: "potato.py",
-		languageId: "python",
-		version: 1,
-		text: fs.readFileSync("./test/data/potato.py").toString()
-	}
-};
+const log = getLogger("test.harness");
 
-const log = utils.getLogger("harness.test");
-const getInitParams = () => {
-	const processId = 1;
-	const params = {
-		capabilities: {
-		},
-		processId,
-		rootPath: "../test/data/",
-	};
-	return params;
-};
-const getHarness = () => new Promise<JediHarness>((resolve, reject) => resolve(new JediHarness()));
-const initHarness = (params?: InitializeParams, harness?: JediHarness, ): Promise<JediMessage<InitializeResult>> => {
-	return (!harness ? getHarness() : Promise.resolve(harness))
-		.then(harness => {
-			if (!params) {
-				params = getInitParams();
-			}
-			return harness.initialize(params);
-		});
-};
 
 describe("harness", () => {
 	it("initializes and connects to ls-python", () => {
@@ -72,7 +43,6 @@ describe("harness", () => {
 					})
 					.then(() => harness.exit())
 					.then(codeOrSig => {
-						log(`SIG: ` + codeOrSig);
 						assert.equal(codeOrSig, "SIGTERM");
 					})
 					;
@@ -95,8 +65,8 @@ describe("harness", () => {
 				harness.onDidOpenTextDocument(didOpenTextDocument);
 
 				return new Promise((resolve, reject) => {
-					setTimeout(resolve, 1000);
+					setTimeout(() => harness.exit().then(resolve), 1000);
 				});
-			});
+			})
 	});
 });

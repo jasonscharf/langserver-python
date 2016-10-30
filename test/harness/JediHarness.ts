@@ -8,11 +8,9 @@ import {
 
 
 import { JediServiceStdioWrapper } from "./JediServiceStdioWrapper";
-import { LanguageServer, LanguageServerState } from "./../../lang-server/LanguageServer";
+import { LanguageServer, LanguageServerState } from "./LanguageServer";
 import { JediMessage } from "./protocol";
-import { PythonWorkspace } from "./PythonWorkspace";
-import { SourceSnapshot } from "./../../models/SourceSnapshot";
-import { getLogger } from "./../../utils";
+import { getLogger } from "./utils2";
 
 const log = getLogger("HARN");
 
@@ -21,10 +19,9 @@ const log = getLogger("HARN");
 /**
  * LSP Server that interacts with Jedi over a transport such as stdio or TCP/IP.
  */
-export class JediHarness implements LanguageServer {
+export class JediHarness {
 	protected _state = LanguageServerState.Uninitialized;
 	protected _initResponse: JediMessage<InitializeResult>;
-	protected _workspace: PythonWorkspace;
 	protected _wrapper: JediServiceStdioWrapper;
 
 
@@ -59,7 +56,6 @@ export class JediHarness implements LanguageServer {
 		log(`Initializing...`);
 
 		this._state = LanguageServerState.Uninitialized;
-		this._workspace = new PythonWorkspace();
 		this._wrapper = new JediServiceStdioWrapper();
 
 		// TODO: Note: This is where pre-init could be specified to the wrapper.
@@ -82,22 +78,8 @@ export class JediHarness implements LanguageServer {
 		}
 	}
 
-	getPosFromLineCharPair(source: SourceSnapshot, line: number, char: number): number {
-		return 0;
-	}
-
-	getWorkspaceSources(): SourceSnapshot[] {
-		return [];
-	}
-
-	onCompletion(params): CompletionItem[] {
-		return [];
-	}
-
-	onDidChangeContent(params: any): void {
-	}
-
-	onDidChangeConfiguration(params: DidChangeConfigurationParams): void {
+	send<T>(method: string, params: any) {
+		return this._wrapper.send<any, T>(method, params);
 	}
 
 	onDidOpenTextDocument(params: DidOpenTextDocumentParams): void {
@@ -109,33 +91,5 @@ export class JediHarness implements LanguageServer {
 		*/
 
 		this._wrapper.notify("textDocument/didOpen", params);
-	}
-
-	onDefinition(params: TextDocumentPositionParams): Definition {
-		return null;
-	}
-
-	onReferences(params: ReferenceParams): Location[] {
-		// # TODO: Prebuild symbol refs on the python side, init them when docs are opened and notify em back for sync resolution
-		return [];
-	}
-
-	onDidChangeWatchedFiles(change: DidChangeWatchedFilesParams): void {
-
-	}
-
-	onCompletionResolve(item: CompletionItem): CompletionItem {
-		return null;
-	}
-
-	onDidChangeTextDocument(params: DidChangeTextDocumentParams): void {
-	}
-
-	onDidCloseTextDocument(params: DidCloseTextDocumentParams): void {
-
-	}
-
-	onHover(params: TextDocumentPositionParams) {
-
 	}
 }
