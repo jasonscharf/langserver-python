@@ -5,7 +5,6 @@ import os
 import traceback
 
 from utils import echo
-from jsonrpc import dispatcher
 from rpc import process
 
 
@@ -34,10 +33,8 @@ class StdioTransport:
 
 		echo("Respond {}".format(json.dumps(response_body)))
 
-		# Note: Currently using off-brand JSON-RPC for detailed debugging purposes (silent proto failures in VSC)
-		#resp = "Content-Length: {}\r\n\r\n{}".format(response_len, response_body)
-		output.write("{}!".format(response_len))
-		output.write(response_body)
+		resp = "Content-Length: {}\r\n\r\n{}".format(response_len, response_body)
+		output.write(resp)
 
 		return
 
