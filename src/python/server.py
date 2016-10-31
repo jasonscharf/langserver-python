@@ -8,7 +8,6 @@ import os
 
 import transports
 import constants
-from jsonrpc import dispatcher
 from utils import echo
 from handlers import preinit, initialize, didOpen, hover, definition, references
 

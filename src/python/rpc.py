@@ -1,6 +1,5 @@
 import json
-
-from jsonrpc import dispatcher
+import handlers
 from utils import echo
 
 
@@ -18,28 +17,27 @@ def process(body):
 	request_id = request_envelope.get("id", -1)
 	request_params = request_envelope.get("params", {})
 
-	# Map to LSP names, but safely
-	request_method_safe = "noop"
+	# Map to LSP names
+	handler = None
 	if method == "initialize":
-		request_method_safe = "initialize"
+		handler = handlers.initialize
 	elif method == "textDocument/didOpen":
-		request_method_safe = "didOpen"
+		handler = handlers.didOpen
 	elif method == "textDocument/hover":
-		request_method_safe = "hover"
+		handler = handlers.hover
 	elif method == "textDocument/definition":
-		request_method_safe = "definition"
+		handler = handlers.definition
 	elif method == "textDocument/references":
-		request_method_safe = "references"
+		handler = handlers.references
 	elif method == "textDocument/didChange":
-		request_method_safe = "didChange"
+		handler = handlers.didChange
 	elif method == "workspace/symbol":
-		request_method_safe = "symbol"
+		handler = handlers.symbol
 	elif method == "shutdown":
-		request_method_safe = "shutdown"
+		handler = handlers.shutdown
 	elif method == "exit":
-		request_method_safe = "exit"
+		handler = handlers.exit
 
-	handler = dispatcher.get("{}".format(request_method_safe))
 	payload = {}
 
 	if handler is None:

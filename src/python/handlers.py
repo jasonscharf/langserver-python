@@ -2,7 +2,6 @@ import jedi
 import sys
 import constants
 
-from jsonrpc import dispatcher
 from workspace import Workspace
 from docref import DocRef
 from utils import echo, sanitize, normalize_vsc_uri
@@ -19,7 +18,6 @@ def preinit(args):
 #
 # LSP initialize
 #
-@dispatcher.add_method
 def initialize(id, method, params):
 	echo("Initialize received. Workspace root: {}".format(params["rootPath"]))
 
@@ -47,7 +45,6 @@ def initialize(id, method, params):
 #
 # LSP textDocument/didOpen
 #
-@dispatcher.add_method
 def didOpen(id, method, params):
 	uri = params["textDocument"]["uri"]
 	content = params["textDocument"]["text"]
@@ -58,7 +55,6 @@ def didOpen(id, method, params):
 #
 # LSP textDocument/didChange
 #
-@dispatcher.add_method
 def didChange(id, method, params):
 	uri = params["textDocument"]["uri"]
 	changes = params["contentChanges"]
@@ -73,7 +69,6 @@ def didChange(id, method, params):
 #
 # LSP textDocument/hover
 #
-@dispatcher.add_method
 def hover(id, method, params):
 	items = []
 	try:
@@ -121,7 +116,6 @@ def hover(id, method, params):
 #
 # LSP textDocument/definition
 #
-@dispatcher.add_method
 def definition(id, method, params):
 	items = []
 	try:
@@ -166,7 +160,6 @@ def definition(id, method, params):
 #
 # LSP textDocument/references
 #
-@dispatcher.add_method
 def references(id, method, params):
 	refs = []
 	try:
@@ -206,7 +199,6 @@ def references(id, method, params):
 #
 # LSP workspace/symbol
 #
-@dispatcher.add_method
 def symbol(id, method, params):
 	candidates = {}
 	try:
@@ -315,7 +307,6 @@ def symbol(id, method, params):
 #
 # LSP exit
 #
-@dispatcher.add_method
 def exit(id, method, params):
 	# Note: It's up to transports to handle integer responses and exit accordingly
 	return 0
@@ -323,7 +314,6 @@ def exit(id, method, params):
 #
 # LSP shutdown
 #
-@dispatcher.add_method
 def shutdown(id, method, params):
 	# Not for backend...
 	return 0
