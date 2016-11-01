@@ -1,3 +1,5 @@
+#!/usr/bin/env python2.7
+
 import SocketServer 
 import threading
 import argparse
@@ -16,16 +18,17 @@ def serve(args):
 	if args.stdio:
 		mode = "stdio"
 	else:
-		mode = "sockets";
+		mode = "sockets"
 
 	if mode == "stdio":
-		echo("Python language server using stdio transport...")
-		server = transports.StdioTransport()
+		server = transports.JsonRPCTransport()
+		echo("Python language server. Mode: stdio")
+
 		while True:
 			server.handle(sys.stdin, sys.stdout)
 
 	elif mode == "sockets":
-		echo("Python language server listening on {}:{}".format(args.host, args.port))
+		echo("Python language server. Mode: TCP/IP on {}:{}".format(args.host, args.port))
 		host = args.host
 		port = int(args.port)
 
@@ -76,28 +79,16 @@ def addSourceArgs(parser):
 
 def main():
 	parser = argparse.ArgumentParser(description="Python Jedi")
-
-	# Allow preinitialization (importation of costly packages) to be controlled
-	subparsers = parser.add_subparsers(help="commands")
-	server_parser = subparsers.add_parser('serve', help="Run as a server")
-
-	# Server mode args
-	server_parser.add_argument("--pre", help='', default="none")
-	server_parser.add_argument("--stdio", action='store_true', help='Runs the server over stdio', default=False)
-	server_parser.add_argument("--host", help='The port to host the language server on', nargs='?', default=constants.default_host)
-	server_parser.add_argument("--port", help='The hostname to listen on', nargs='?', default=constants.default_port)
-	server_parser.set_defaults(func=serve)
-
-	# 'hover' args
-	hover_parser = subparsers.add_parser('hover', help="Hover mode")
-	addSourceArgs(hover_parser)
-
-	hover_parser.set_defaults(func=hover)
+	parser.add_argument("--pre", help='', default=None)
+	parser.add_argument("--stdio", action='store_true', help='Runs the server over stdio', default=False)
+	parser.add_argument("--host", help='The port to host the language server on', nargs='?', default=constants.default_host)
+	parser.add_argument("--port", help='The hostname to listen on', nargs='?', default=constants.default_port)
+	parser.set_defaults(func=serve)
 
 	args = parser.parse_args()
 
-	if args.pre is not "none":
-		preinit(args)
+	#if args.pre is not None:
+	#	preinit(args)
 
 	args.func(args)
 

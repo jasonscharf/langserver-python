@@ -1,4 +1,5 @@
 /.idea
+/.bin/langserver-python.cmd
 .vscode/.ropeproject
 out
 node_modules

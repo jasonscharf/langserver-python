@@ -1,3 +1,4 @@
+# Note: This is the original alpha language server
 #!/usr/bin/env python3.5
 
 import argparse
