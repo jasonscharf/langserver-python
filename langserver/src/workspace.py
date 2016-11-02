@@ -22,6 +22,7 @@ class Workspace:
 	def open(self, path):
 		path = sanitize(path)
 		doc = self.get(path)
+
 		if doc is None:
 			return self.open_from_fs(path)
 		else:
@@ -45,14 +46,16 @@ class Workspace:
 		path = sanitize(path)
 
 		# Root relative paths
+		# TODO: Review for security purposes
 		if path.startswith("/") is False:
 			rooted_path = os.path.join(self.root, path)
 
 		doc = Document()
 		try:
 			content = open(rooted_path).read()
+
 		except IOError:
-			content = ""
+			echo("Could not read path '%s'" % rooted_path)
 
 		doc.content = content
 
@@ -64,7 +67,6 @@ class Workspace:
 		path = sanitize(path)
 		doc = self.documents.get(path)
 		if doc is not None:
-			echo("Found existing doc '{}'".format(path))
 			return doc
 
 		return None

@@ -16,11 +16,20 @@ class JsonRPCTransport:
 		while True:
 			try:
 				try:
-					# TODO: Handle MIME-type header from VS Code
+					has_content_length = False
 					header_content_len = input.readline().strip()
-					content_len = int(header_content_len.split(": ")[1])
 
-					header_content_type_or_newline = input.readline().strip()
+					# We care about "Content-Length", newlines, and JSON-RPC bodies, that's it at this point
+					if header_content_len.startswith("Content-Length:") is True:
+						echo("Read content-len")
+						content_len = int(header_content_len.split(": ")[1])
+						has_content_length = True
+						continue
+
+					elif len(header_content_len) > 0:
+						echo("Found HTTPish header '{}'...continue".format(header_content_len))
+						continue
+
 
 				except:
 					traceback.print_exc(file=sys.stderr)
@@ -29,8 +38,6 @@ class JsonRPCTransport:
 					return
 
 				# TODO: Remove if supporting HTTP JSON-RPC not needed
-				#if len(header_content_type_or_newline) < 1:
-				#	echo("Received last header")
 
 				body = input.read(content_len)
 				echo("Read {} bytes of request body:\n{}".format(content_len, body))
@@ -45,10 +52,12 @@ class JsonRPCTransport:
 				elif response_envelope is not None:
 					response_body = json.dumps(response_envelope)
 					response_len = len(response_body)
+					content_type = "application/vscode-jsonrpc; charset=utf8"
 					resp = "Content-Length: {}\r\n\r\n{}".format(response_len, response_body)
 
 				echo("Respond {}".format(resp))
 				output.write(resp)
+				output.flush()
 
 			except KeyboardInterrupt:
 				sys.exit()
@@ -58,7 +67,6 @@ class JsonRPCTransport:
 				traceback.print_exc(file=sys.stderr)
 				echo("Unexpected error: {}".format(sys.exc_info()[0]))
 				# TODO: Error RESP for fatals
-
 
 
 class SocketTransport(SocketServer.StreamRequestHandler):

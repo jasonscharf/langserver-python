@@ -52,7 +52,6 @@ def process(body):
 	if request_id == -1:
 		return
 
-
 	response_envelope = {}
 	response_envelope["jsonrpc"] = "2.0"
 	response_envelope["id"] = request_id

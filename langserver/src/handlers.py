@@ -1,5 +1,6 @@
 import jedi
 import sys
+import traceback
 import constants
 
 from workspace import Workspace
@@ -70,37 +71,53 @@ def didChange(id, method, params):
 #
 def hover(id, method, params):
 	items = []
+
 	try:
 		docref = DocRef(params)
+
+		# Note: Since we're currently using completions (this may change), skip 0-char results,
+		# as they will yield stdlib and other symbols as if the user was typing a new line.
+		if docref.character == 1:
+			resp = {
+				"contents": []
+			}
+			return resp
+
 		content = workspace.open(docref.uri).content
-		
-		# Note: Jedi errors are supressed here due to sporadic failure on invalid column.
+
 		completions = []
-		try:
-			script = jedi.api.Script(source=content, line=docref.line, column=docref.character, path=docref.uri)
-			completions = script.completions()
-		except:
-			pass
+		script = jedi.api.Script(source=content, line=docref.line, column=docref.character, path=docref.uri)
+		completions = script.completions()
 
 		# Improvement: Jedi's API calls yield some overlapping results. Hover can be implemented in multiple ways
 		for completion in completions:
 
 			# Small markdown string that bolds the symbol's description
-			item = "**%s**  \n%s" % (completion.description, completion.type)
+			item = {
+				"value": "**%s**  \n%s" % (completion.description, completion.type)
+			}
 			items.append(item)
 			break
 
 		# Return a sensible default. If don't find anything, look for defs and use the first definition we find
 		if len(items) == 0:
 			defs = script.goto_definitions()
+
 			if len(defs) == 0:
-				default_item = "(no info found)"
+				default_item = {
+					"value": "(no info found)"
+				}
 				items.append(default_item)
 			else:
 				first_def = defs[0]
-				item = "**%s**  \n%s" % (first_def.description, first_def.type)
-
+				item = {
+					"value": "**%s**  \n%s" % (first_def.description, first_def.type)
+				}
 				items.append(item)
+
+	except ValueError:
+		echo("Jedi: Invalid line or char position")
+		pass
 
 	except:
 		traceback.print_exc(file=sys.stderr)
@@ -109,7 +126,6 @@ def hover(id, method, params):
 	resp = {
 		"contents": items
 	}
-
 	return resp
 
 
@@ -151,6 +167,10 @@ def definition(id, method, params):
 
 			items.append(item)
 
+	except ValueError:
+		echo("Jedi: Invalid line or char position")
+		pass
+
 	except:
 		traceback.print_exc(file=sys.stderr)
 		echo("Error (textDocument/definition): {}".format(sys.exc_info()[0]))
@@ -166,7 +186,7 @@ def references(id, method, params):
 	try:
 		docref = DocRef(params)
 		context = params["context"]
-		include_decl = context["includeDeclaration"]
+		include_decl = context.get("includeDeclaration", False)
 		content = workspace.open(docref.uri).content
 
 		script = jedi.api.Script(source=content, line=docref.line, column=docref.character, path=docref.uri)
@@ -190,6 +210,10 @@ def references(id, method, params):
 			}
 
 			refs.append(item)
+
+	except ValueError:
+		echo("Jedi: Invalid line or char position")
+		pass
 
 	except:
 		traceback.print_exc(file=sys.stderr)
@@ -299,7 +323,11 @@ def symbol(id, method, params):
 				key = "%s::%s" % (completion.full_name, completion.type)
 				candidates[key] = item
 
-	# If this fails, it's for a reason worth raising - unlike certain Jedi exceptions re: line/char pos
+	except ValueError:
+		echo("Jedi: Invalid line or char position")
+		pass
+
+
 	except:
 		traceback.print_exc(file=sys.stderr)
 		echo("Error (textDocument/symbol): {}".format(sys.exc_info()[0]))
