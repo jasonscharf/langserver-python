@@ -32,7 +32,6 @@ class Workspace:
 		path = sanitize(path)
 		doc = self.get(path)
 		if doc is None:
-			echo("Add script '{}'".format(path))
 			doc = Document()
 			doc.uri = path
 			doc.content = content
@@ -46,7 +45,6 @@ class Workspace:
 		path = sanitize(path)
 
 		# Root relative paths
-		# TODO: Review for security purposes
 		if path.startswith("/") is False:
 			rooted_path = os.path.join(self.root, path)
 
@@ -81,7 +79,6 @@ class Workspace:
 
 	def update(self, path, content):
 		path = sanitize(path)
-		echo("Update {}".format(path))
 		doc = self.get_or_create(path)
 		doc.content = content
 

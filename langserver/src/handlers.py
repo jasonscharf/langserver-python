@@ -1,4 +1,6 @@
+import os
 import jedi
+import json
 import sys
 import traceback
 import constants
@@ -13,7 +15,7 @@ workspace = Workspace()
 
 def preinit(args):
 	echo("Pre-initializing the Jedi server...")
-	# TODO: Preload costly packages, e.g. numpy.
+	# TODO (jscharf): Preload costly packages, e.g. numpy.
 
 
 #
@@ -29,13 +31,6 @@ def initialize(id, method, params):
 	capabilities["definitionProvider"] = True
 	capabilities["referencesProvider"] = True
 	capabilities["workspaceSymbolProvider"] = True
-
-	# TODO: Remove. Slightly useful for debugging/perf purposes but not currently supported.
-	completion_provider_cap = {}
-	completion_provider_cap["resolveProvider"] = True
-	capabilities["completionProvider"] = completion_provider_cap
-
-	# TODO: Consume other workspace documents - not just open documents!
 
 	resp = {}
 	resp["capabilities"] = capabilities
@@ -84,17 +79,14 @@ def hover(id, method, params):
 			return resp
 
 		content = workspace.open(docref.uri).content
-
 		completions = []
 		script = jedi.api.Script(source=content, line=docref.line, column=docref.character, path=docref.uri)
 		completions = script.completions()
 
 		# Improvement: Jedi's API calls yield some overlapping results. Hover can be implemented in multiple ways
 		for completion in completions:
-
-			# Small markdown string that bolds the symbol's description
 			item = {
-				"value": "**%s**  \n%s" % (completion.description, completion.type)
+				"value": completion.name
 			}
 			items.append(item)
 			break
@@ -108,10 +100,11 @@ def hover(id, method, params):
 					"value": "(no info found)"
 				}
 				items.append(default_item)
+
 			else:
 				first_def = defs[0]
 				item = {
-					"value": "**%s**  \n%s" % (first_def.description, first_def.type)
+					"value": first_def.name
 				}
 				items.append(item)
 
@@ -140,7 +133,6 @@ def definition(id, method, params):
 		script = jedi.api.Script(source=content, line=docref.line, column=docref.character, path=docref.uri)
 
 		# See note re: differences between goto_assignments and goto_definitions here (from http://jedi.jedidjah.ch/en/latest/docs/plugin-api.html#jedi.api.Script.goto_definitions):
-		# Also... "Warning: Don't use this function yet, its behaviour may change. If you really need it, talk to me." :/
 		definitions = script.goto_definitions()
 
 		for definition in definitions:
@@ -149,7 +141,11 @@ def definition(id, method, params):
 			if not definition.is_definition():
 				continue
 
-			path = normalize_vsc_uri(definition.module_path)
+			uri = ''
+			if definition.module_path is not None:
+				uri = normalize_vsc_uri(definition.module_path)
+			elif definition.name is not None:
+				uri = normalize_vsc_uri(definition.name)
 
 			# One position is used for the start and end of the range because VSC - at the least - works it out to mean the entire line
 			# Not sure if this is noted and/or buried in protocol.md somewhere, but I've seen it mentioned.
@@ -158,7 +154,7 @@ def definition(id, method, params):
 				"character": definition.column
 			}
 			item = {
-				"uri": path,
+				"uri": uri,
 				"range": {
 					"start": pos,
 					"end": pos
@@ -187,22 +183,29 @@ def references(id, method, params):
 		docref = DocRef(params)
 		context = params["context"]
 		include_decl = context.get("includeDeclaration", False)
-		content = workspace.open(docref.uri).content
 
+		content = workspace.open(docref.uri).content
 		script = jedi.api.Script(source=content, line=docref.line, column=docref.character, path=docref.uri)
 		usages = script.usages()
 
 		for usage in usages:
 			if usage.is_definition() and include_decl is not True:
 				continue
+			if usage.line is None:
+				continue
 
-			path = normalize_vsc_uri(usage.module_path)
+			uri = ''
+			if usage.module_path is not None:
+				uri = normalize_vsc_uri(usage.module_path)
+			elif usage.name is not None:
+				uri = normalize_vsc_uri(usage.name)
+
 			pos = {
 				"line": usage.line - 1,
 				"character": usage.column
 			}
 			item = {
-				"uri": path,
+				"uri": uri,
 				"range": {
 					"start": pos,
 					"end": pos
@@ -226,125 +229,171 @@ def references(id, method, params):
 # LSP workspace/symbol
 #
 def symbol(id, method, params):
-	candidates = {}
+	symbols = {}
 	try:
 		query_external_refs_only = False
 		query_exported_defs_only = False
 		query_empty = False
 
-		raw_query = params["query"].strip()
+		# Default to 10
+		query_limit = 10
 
-		# TODO (remove, for testing)
-		raw_query = "%s %s" % (constants.query_is_ext_ref, raw_query)
+		raw_query = params['query'].strip()
 
 		# See https://github.com/sourcegraph/langserver#lsp-method-details
 		if raw_query.startswith(constants.query_is_ext_ref):
 			query = raw_query[len(constants.query_is_ext_ref) + 1:]
 			query_external_refs_only = True
+
 		elif raw_query.startswith(constants.query_is_exported):
 			query = raw_query[len(constants.query_is_exported) + 1:]
 			query_exported_defs_only = True
+
 		elif raw_query == "":
+			query = ""
 			query_empty = True
+
 		else:
 			query = raw_query
-
-		query = query.strip()
 		
-		echo("Symbol query. Empty?: %s External? %s Exports only? %s Body: %s" % (query_empty, query_external_refs_only, query_exported_defs_only, query))
-
+		# Note: Query string is case insensitive, as are the symbol names it is tested against
+		query = query.strip().lower()
 		query_len = len(query)
 
-		# For each document in the workspace, get completions from the module scope of that document as if it were being typed in at the foot of the doc.
-		# This is actually a pretty workable solution (initially). However, there are other options. This is a somewhat naive approach.
-		for key, value in workspace:
-			document = value
-			line = document.lines + 1
+		candidate_files = [] 
 
-			# Append the query string to the bottom of a synthesized "document" and at at the end of the query
-			content = document.content + "\n" + query
-			script = jedi.api.Script(source=content, line=line, column=query_len, path=key)
+		# Search workspace for all files ending in .py
+		try:
+			for file in os.listdir(workspace.root):
+				if file.endswith(".py"):
+					candidate_files.append(os.path.join(workspace.root, file))
 
-			# Improvement: goto_definitions use on the completions.
-			for completion in script.completions():
-				name = "%s (%s)" % (completion.name, completion.type)
-				container = completion.full_name
-				uri_raw = completion.module_path
-				is_vendored = False
+		except IOError:
+			traceback.print_exc(file=sys.stderr)
+			echo("Error (textDocument/symbol): {}".format(sys.exc_info()[0]))
 
-				# Note: Builtins have no 'module_path' (URI) and not considered vendor libs
-				# See https://github.com/sourcegraph/langserver#lsp-method-details
-				# TODO: Need to consider other packages tho
-				if uri_raw is None:
-					uri_raw = "[ext]/%s" % name
 
-				if query_external_refs_only and is_vendored is True:
-					continue
+		for file in candidate_files:
 
-				if query_exported_defs_only and is_vendored is True:
-					continue
+			# Note: Despite references being False
+			# Perf: Caching these per file and dirty-tracking may yield tangible performance benefits
+			file_symbols = jedi.api.names(path=file, encoding='utf-8', definitions=True, references=False, all_scopes=True)
 
-				# In most languages, the only external refs available in a given scope will be ones exported from other (external) modules.
-				# That's not the case with code search, which has looser rules than type systems and symbol trees.
-				# That's why is_external and is_exported properties can be treated as distinct (although they're not here, currently).
-				if is_vendored is True and sanitize(uri_raw) != document.uri:
-					is_external = True
-					is_exported = True
-					echo("Found external ref '%s' for '%s'" % (sanitize(uri_raw), document.uri))
+			# Again, note case insensitivity
+			if query in file.lower():
 
-				uri = normalize_vsc_uri(uri_raw)
-				line = completion.line
-
-				# Builtins don't have positional info (at least not from completions)
-				if line is None:
-					echo("No line for completion '%s' @ %s" % (name, uri))
-					line = 1
-					column = 0
-
+				# TODO: Test with mixed-slash paths (i.e. NT paths)
+				head, tail = os.path.split(file)
+				uri = normalize_vsc_uri(file)
 				pos = {
-					"line": line - 1,
+					"line": 0,
 					"character": 0
-				},
-
-				item = {
-					"name": name,
-					"containerName": container,
-					"kind": 1,
-					"location": {
-						"uri": uri,
-						"range": {
-							"start": pos,
-							"end": pos
-						}
+				}
+				location = {
+					'uri': uri,
+					'range': {
+						'start': pos,
+						'end': pos
 					}
 				}
+				item = {
+					'name': tail,
+					'containerName': head,
+					'location': location
+				}
+				symbols[file] = item
 
-				# Use of a dictionary prevents duplicates (from other in-scope refs in other documents)
-				key = "%s::%s" % (completion.full_name, completion.type)
-				candidates[key] = item
+			seen_symbols = {}
+			for symbol in file_symbols:
+
+				# Memoize symbols we've seen
+				if symbol.full_name in seen_symbols:
+					continue
+				else:
+					seen_symbols[symbol.full_name] = symbol
+
+
+				# No module_path? Outside of workspace, builtin?
+				if symbol.module_path is None:
+					continue
+
+				# Filter based on the query string
+				name = symbol.name.lower()
+				symbol_name = symbol.name.lower()
+				name = symbol.name.lower()
+				full_name = symbol.full_name.lower()
+				module_name = symbol.module_name.lower()
+				parent = symbol.parent()
+				parent_name = None
+
+				if parent is not None:
+					parent_name = parent.name
+
+				# Check symbol name and full name. Checking full name catches symbols with non-matching names that are imported from modules with matching names.
+				# For example, querying for "util" should yield "utils.echo", even though "echo" has a non-matching symbol name "echo" and it may not be ref'd via its FQ name.
+				if query_empty is False:
+					if query in symbol_name:
+						symbol_name = symbol.name
+					
+					elif symbol.type == 'module':
+						symbol_name = module_name
+
+					else:
+						continue
+				else:
+					# Empty queries "match" against full names. This is clearer from a UX perspective.
+					symbol_name = symbol.full_name
+
+				key = '%s-%s-%s' % (symbol.module_path, symbol.name, symbol.type or '[any]')
+				if key in symbols:
+					continue
+
+				uri = normalize_vsc_uri(symbol.module_path)
+				pos = {
+					"line": symbol.line - 1,
+					"character": symbol.column
+				}
+				location = {
+					'uri': uri,
+					'range': {
+						'start': pos,
+						'end': pos
+					}
+				}
+				item = {
+					'name': symbol_name,
+					'location': location
+				}
+				symbols[key] = item
+
+				# Enforce query limits
+				if len(symbols) >= query_limit:
+					break
+
 
 	except ValueError:
+		echo(traceback.format_exc())
 		echo("Jedi: Invalid line or char position")
 		pass
 
 
 	except:
-		traceback.print_exc(file=sys.stderr)
+		echo(traceback.format_exc())
 		echo("Error (textDocument/symbol): {}".format(sys.exc_info()[0]))
 
-	return candidates.values()
+	return symbols.values() or []
 
 
 #
 # LSP exit
 #
 def exit(id, method, params):
-	# Note: It's up to transports to handle integer responses and exit accordingly
-	return 0
+	# -1 is used as a simple exit signal and relayed back to the transport to shut down cleanly
+	return -1
+
 
 #
 # LSP shutdown
 #
 def shutdown(id, method, params):
-	# Not for backend...
-	return 0
+	return {}

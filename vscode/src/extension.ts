@@ -15,7 +15,6 @@ export function activate(context: ExtensionContext) {
 		{
 			command: 'langserver-python',
 			args: [
-				'--stdio',
 			],
 			options: {
 				env: {
@@ -25,7 +24,13 @@ export function activate(context: ExtensionContext) {
 		},
 		{
 			documentSelector: ['python'],
+			uriConverters: {
+				// Apply file:/// scheme to all file paths.
+				code2Protocol: (uri: Uri): string => (uri.scheme ? uri : uri.with({ scheme: 'file' })).toString(),
+				protocol2Code: (uri: string) => Uri.parse(uri),
+			},
 		}
 	);
 	context.subscriptions.push(c.start());
 }
+

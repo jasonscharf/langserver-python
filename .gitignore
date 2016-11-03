@@ -1,6 +1,7 @@
 /.idea
 /.bin/langserver-python.cmd
 .vscode/.ropeproject
+/test_repos/github.com/django
 out
 node_modules
 *.js

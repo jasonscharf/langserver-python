@@ -1,4 +1,5 @@
-// A launch configuration that compiles the extension and then opens it inside a new window
+// Note: This essentially duplicates the launchfile in extension subfolder, but allows for launching from the parent folder for convenience.
+// Importantly: This will not run the npm preLaunchTask that builds the extension - you must cd into vscode to do so.
 {
 	"version": "0.1.0",
 	"configurations": [
@@ -7,22 +8,20 @@
 			"type": "extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
-			"args": ["--extensionDevelopmentPath=${workspaceRoot}/vscode" ],
+			"args": ["--extensionDevelopmentPath=${workspaceRoot}/vscode/"],
 			"stopOnEntry": false,
 			"sourceMaps": true,
-			"outDir": "${workspaceRoot}/vscode/out",
-			"preLaunchTask": "npm"
+			"outDir": "${workspaceRoot}/vscode/out"
 		},
 		{
 			"name": "Launch Tests",
 			"type": "extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
-			"args": ["--extensionDevelopmentPath=${workspaceRootvscode}/vscode", "--extensionTestsPath=${workspaceRoot}vscode/out/test" ],
+			"args": ["${workspaceRoot}/vscode/test/data", "--extensionDevelopmentPath=${workspaceRoot}/vscode", "--extensionTestsPath=${workspaceRoot}/vscode/out/test"],
 			"stopOnEntry": false,
 			"sourceMaps": true,
-			"outDir": "${workspaceRoot}/vscode/out/test",
-			"preLaunchTask": "npm"
+			"outDir": "${workspaceRoot}/vscode/out/test"
 		}
 	]
 }

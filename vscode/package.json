@@ -56,7 +56,7 @@
     "typescript": "^2.0.3",
     "vscode": "^1.0.3"
   },
-  "main": "./out/extension",
+  "main": "./out/src/extension",
   "scripts": {
     "compile": "tsc",
     "postinstall": "node ./node_modules/vscode/bin/install && tsc",

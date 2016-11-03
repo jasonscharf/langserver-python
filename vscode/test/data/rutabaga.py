@@ -7,5 +7,5 @@ class Rutabaga:
 
 ruta = Rutabaga()
 
-cabbagelike = Rutabaga();
-turniplike = Rutabaga();
+cabbagelike = Rutabaga()
+turniplike = Rutabaga()

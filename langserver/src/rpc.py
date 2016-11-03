@@ -1,5 +1,6 @@
 import json
 import handlers
+
 from utils import echo
 
 
@@ -47,10 +48,13 @@ def process(body):
 	else:
 		payload = handler(request_id, method, request_params)
 
+	# Payload of -1 is a simple exit signal and is relayed to the transport
+	if payload == -1:
+		return -1
 
 	# Request ID of -1 indicates notification and therefore has no response
 	if request_id == -1:
-		return
+		return None
 
 	response_envelope = {}
 	response_envelope["jsonrpc"] = "2.0"
