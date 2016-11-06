@@ -19,18 +19,23 @@ class Workspace:
 	def __iter__(self):
 		return self.documents.iteritems()
 
-	def open(self, path):
-		path = sanitize(path)
-		doc = self.get(path)
+	def open(self, path, sanitized):
+		if sanitized is False:
+			path = sanitize(path)
 
+		# Try the workspace overlay before the FS
+		doc = self.get(path, True)
 		if doc is None:
-			return self.open_from_fs(path)
-		else:
-			return doc
+			return self.open_from_fs(path, True)
+			
+		return doc
 
-	def open_with_content(self, path, content):
-		path = sanitize(path)
-		doc = self.get(path)
+
+	def open_with_content(self, path, content, sanitized):
+		if sanitized is False:
+			path = sanitize(path)
+
+		doc = self.get(path, True)
 		if doc is None:
 			doc = Document()
 			doc.uri = path
@@ -41,14 +46,19 @@ class Workspace:
 
 		return doc
 
-	def open_from_fs(self, path):
-		path = sanitize(path)
+	def open_from_fs(self, path, sanitized):
+		if sanitized is False:
+			path = sanitize(path)
 
 		# Root relative paths
 		if path.startswith("/") is False:
 			rooted_path = os.path.join(self.root, path)
+		else:
+			rooted_path = path
 
 		doc = Document()
+		content = ""
+
 		try:
 			content = open(rooted_path).read()
 
@@ -61,25 +71,31 @@ class Workspace:
 		self.documents[path] = doc
 		return doc
 
-	def get(self, path):
-		path = sanitize(path)
+	def get(self, path, sanitized):
+		if sanitized is False:
+			path = sanitize(path)
+
 		doc = self.documents.get(path)
 		if doc is not None:
 			return doc
 
 		return None
 	
-	def get_or_create(self, path, content=""):
-		path = sanitize(path)
-		doc = self.documents.get(path)
+	def get_or_create(self, path, content, sanitized):
+		if sanitized is False:
+			path = sanitize(path)
+
+		doc = self.documents.get(path, True)
 		if doc is not None:
 			return doc
 		else:
-			return self.open_with_content(path, content)
+			return self.open_with_content(path, content, True)
 
-	def update(self, path, content):
-		path = sanitize(path)
-		doc = self.get_or_create(path)
+	def update(self, path, content, sanitized):
+		if sanitized is False:
+			path = sanitize(path)
+
+		doc = self.get_or_create(path, content, True)
 		doc.content = content
 
 		self.count_lines(doc)

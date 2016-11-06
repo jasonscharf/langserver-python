@@ -9,9 +9,9 @@ from workspace import Workspace
 from docref import DocRef
 from utils import echo, sanitize, normalize_vsc_uri
 
+
 # Global workspace instance
 workspace = Workspace()
-
 
 def preinit(args):
 	echo("Pre-initializing the Jedi server...")
@@ -22,8 +22,10 @@ def preinit(args):
 # LSP initialize
 #
 def initialize(id, method, params):
-	echo("Initialize received. Workspace root: {}".format(params))
-	workspace.root = params.get("rootPath", ".")
+	rootPath = sanitize(params.get('rootPath', '.'))
+	workspace.root = rootPath
+
+	echo("Initialize received. Workspace root: %s" % (rootPath))
 
 	capabilities = {}
 	capabilities["textDocumentSync"] = 1 # none=0, full=1, incremental=2
@@ -43,7 +45,7 @@ def initialize(id, method, params):
 def didOpen(id, method, params):
 	uri = params["textDocument"]["uri"]
 	content = params["textDocument"]["text"]
-	doc = workspace.open_with_content(uri, content)
+	doc = workspace.open_with_content(uri, content, False)
 	return
 
 
@@ -56,8 +58,7 @@ def didChange(id, method, params):
 
 	# Note: Incremental not supported! Also, this is specifically for IDE support and not for backend at this point.
 	text = changes[0]["text"]
-
-	doc = workspace.update(uri, text)
+	doc = workspace.update(uri, text, False)
 	return
 
 
@@ -78,7 +79,10 @@ def hover(id, method, params):
 			}
 			return resp
 
-		content = workspace.open(docref.uri).content
+		uri = sanitize(docref.uri)
+		doc = workspace.open(uri, True)
+		content = doc.content
+
 		completions = []
 		script = jedi.api.Script(source=content, line=docref.line, column=docref.character, path=docref.uri)
 		completions = script.completions()
@@ -95,25 +99,15 @@ def hover(id, method, params):
 		if len(items) == 0:
 			defs = script.goto_definitions()
 
-			if len(defs) == 0:
-				default_item = {
-					"value": "(no info found)"
-				}
-				items.append(default_item)
-
-			else:
+			if len(defs) > 0:
 				first_def = defs[0]
 				item = {
 					"value": first_def.name
 				}
 				items.append(item)
 
-	except ValueError:
-		echo("Jedi: Invalid line or char position")
-		pass
-
 	except:
-		traceback.print_exc(file=sys.stderr)
+		echo(traceback.format_exc())
 		echo("Error (textDocument/hover): {}".format(sys.exc_info()[0]))
 
 	resp = {
@@ -129,12 +123,11 @@ def definition(id, method, params):
 	items = []
 	try:
 		docref = DocRef(params)
-		content = workspace.open(docref.uri).content
+		content = workspace.open(docref.uri, False).content
 		script = jedi.api.Script(source=content, line=docref.line, column=docref.character, path=docref.uri)
 
 		# See note re: differences between goto_assignments and goto_definitions here (from http://jedi.jedidjah.ch/en/latest/docs/plugin-api.html#jedi.api.Script.goto_definitions):
 		definitions = script.goto_definitions()
-
 		for definition in definitions:
 
 			# If true, it's a def and not a ref
@@ -163,12 +156,8 @@ def definition(id, method, params):
 
 			items.append(item)
 
-	except ValueError:
-		echo("Jedi: Invalid line or char position")
-		pass
-
 	except:
-		traceback.print_exc(file=sys.stderr)
+		echo(traceback.format_exc())
 		echo("Error (textDocument/definition): {}".format(sys.exc_info()[0]))
 
 	return items
@@ -184,7 +173,7 @@ def references(id, method, params):
 		context = params["context"]
 		include_decl = context.get("includeDeclaration", False)
 
-		content = workspace.open(docref.uri).content
+		content = workspace.open(docref.uri, False).content
 		script = jedi.api.Script(source=content, line=docref.line, column=docref.character, path=docref.uri)
 		usages = script.usages()
 
@@ -214,12 +203,8 @@ def references(id, method, params):
 
 			refs.append(item)
 
-	except ValueError:
-		echo("Jedi: Invalid line or char position")
-		pass
-
 	except:
-		traceback.print_exc(file=sys.stderr)
+		echo(traceback.format_exc())
 		echo("Error (textDocument/references): {}".format(sys.exc_info()[0]))
 
 	return refs
@@ -269,14 +254,13 @@ def symbol(id, method, params):
 					candidate_files.append(os.path.join(workspace.root, file))
 
 		except IOError:
-			traceback.print_exc(file=sys.stderr)
+			echo(traceback.format_exc())
 			echo("Error (textDocument/symbol): {}".format(sys.exc_info()[0]))
 
 
 		for file in candidate_files:
 
-			# Note: Despite references being False
-			# Perf: Caching these per file and dirty-tracking may yield tangible performance benefits
+			# Perf: Caching these per file + dirty-tracking may yield tangible performance benefits
 			file_symbols = jedi.api.names(path=file, encoding='utf-8', definitions=True, references=False, all_scopes=True)
 
 			# Again, note case insensitivity
@@ -369,13 +353,6 @@ def symbol(id, method, params):
 				# Enforce query limits
 				if len(symbols) >= query_limit:
 					break
-
-
-	except ValueError:
-		echo(traceback.format_exc())
-		echo("Jedi: Invalid line or char position")
-		pass
-
 
 	except:
 		echo(traceback.format_exc())

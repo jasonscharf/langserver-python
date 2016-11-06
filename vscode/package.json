@@ -33,16 +33,10 @@
     "properties": {}
   },
   "dependencies": {
-    "bluebird": "^3.4.6",
-    "chai": "^3.5.0",
-    "es6-promise": "^4.0.5",
-    "jayson": "^2.0.2",
-    "json-rpc2": "^1.0.2",
-    "typescript": "^2.0.6",
+
     "vscode": "^1.0.3",
     "vscode-languageclient": "^2.6.0",
-    "vscode-languageserver": "^2.2.1",
-    "vscode-languageserver-types": "^1.0.3"
+    "vscode-languageserver": "^2.2.1"
   },
   "devDependencies": {
     "@types/bluebird": "^3.0.35",
@@ -54,7 +48,7 @@
     "chai-as-promised": "^6.0.0",
     "mocha": "^3.1.2",
     "typescript": "^2.0.3",
-    "vscode": "^1.0.3"
+    "vscode-languageserver-types": "^1.0.3"
   },
   "main": "./out/src/extension",
   "scripts": {

@@ -1,27 +1,34 @@
+import re
 import sys
 import urllib
 
-from os.path import expanduser
-
 
 def echo(str):
-	sys.stderr.write(str + '\n')
-	home = expanduser('~')
-	with open(home + '/log.text', 'a') as myfile:
-		myfile.write(str + '\n')
-
+	# sys.stderr.write(str + '\n')
 	return
 
 def sanitize(uri):
-	if uri.startswith('file:///'):
-		uri = urllib.unquote(uri[7:])
+	uri = uri.strip()
 
-	return urllib.quote(uri.replace('\\', '/'))
+	if uri.startswith('file:///'):
+		uri = uri[7:]
+
+	uri = urllib.unquote(uri)
+	uri = uri.replace("\\", '/')
+
+	# Strip leading slash from absolute NTFS-style paths containing a drive letter, i.e. '/c:/projects/' => 'c:/projects/''
+	if uri.startswith('/') and re.match('^\/\w:', uri) is not None:
+		uri = uri[1:]
+
+	return uri
 
 def normalize_vsc_uri(path):
-	uri = 'file:///%s' % urllib.quote(path.replace('\\', '/'))
+	uri = path.replace('\\', '/')
+	uri = urllib.quote(uri)
 
-	if uri.startswith('file:////') is True:
-		uri = uri.replace('file:////', 'file:///')
+	if uri.startswith('/'):
+		uri = 'file://%s' % uri
+	else:
+		uri = 'file:///%s' % uri
 
 	return uri
