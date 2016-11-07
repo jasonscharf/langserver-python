@@ -1,6 +1,6 @@
-#!/usr/bin/env python2.7
+#!/usr/bin/env python3
 
-import SocketServer 
+import socketserver 
 import threading
 import argparse
 import jedi
@@ -26,12 +26,16 @@ def serve(args):
 		server = transports.JsonRPCTransport()
 		echo("Python language server. Mode: stdio")
 
-		while True:
-			ret = server.handle(sys.stdin, sys.stdout)
-			if ret == -1:
-				echo("Stopping.")
+		binstdout = io.open(sys.stdout.fileno(), 'wb', 0)
+		output = io.TextIOWrapper(binstdout, encoding=sys.stdout.encoding, newline='')
 
+		while True:
+			ret = server.handle(sys.stdin, output)
+			if ret == -1:
+				echo("Stopping...")
 				break
+
+		echo("Stopped")
 
 	elif mode == "sockets":
 		echo("Python language server. Mode: TCP/IP on {}:{}".format(args.host, args.port))
@@ -39,15 +43,17 @@ def serve(args):
 		port = int(args.port)
 
 		try:
-			server = SocketServer.TCPServer((host, port), transports.SocketTransport)
+			server = socketserver.TCPServer((host, port), transports.SocketTransport)
 			server.serve_forever()
 		
 		except SystemExit:
 			server.shutdown()
+			pass
 
 		except KeyboardInterrupt:
 			server.shutdown()
 			sys.exit()
+			pass
 
 	else:
 		echo("Invalid mode '{}'".format(mode))
@@ -64,4 +70,6 @@ def main():
 
 
 if __name__ == "__main__":
+	import io, os, sys
 	main()
+

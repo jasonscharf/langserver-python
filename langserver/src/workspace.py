@@ -17,7 +17,7 @@ class Workspace:
 	documents = {}
 
 	def __iter__(self):
-		return self.documents.iteritems()
+		return iter(self.documents.items())
 
 	def open(self, path, sanitized):
 		if sanitized is False:

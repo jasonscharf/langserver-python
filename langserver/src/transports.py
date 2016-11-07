@@ -1,9 +1,11 @@
-import SocketServer
+import socketserver
 import json
 import sys
 import os
 import traceback
+import select
 
+import constants
 from utils import echo
 from rpc import process
 
@@ -17,19 +19,24 @@ class JsonRPCTransport:
 			has_content_length = False
 
 			while True:
-				header_content_len = input.readline().strip()
+				echo("Read...")
+				header = sys.stdin.readline()
+				if len(header) == 0:
+					echo("Receive EOF")
+					return -1
 
+				header = header.strip()
 				# We care about "Content-Length", newlines, and JSON-RPC bodies, that's it at this point
-				if header_content_len.startswith("Content-Length:") is True:
-					content_len = int(header_content_len.split(": ")[1])
+				if header.startswith("Content-Length:") is True:
+					content_len = int(header.split(": ")[1])
 					has_content_length = True
 					continue
 
-				elif len(header_content_len) > 0:
-					echo("Disregard header '{}'...continue".format(header_content_len))
+				elif len(header) > 0:
+					echo("Disregard header '{}'...continue".format(header))
 					continue
 
-				elif len(header_content_len) == 0 and has_content_length is True:
+				elif len(header) == 0 and has_content_length is True:
 					break
 
 				else:
@@ -39,15 +46,13 @@ class JsonRPCTransport:
 			return -1
 
 		except:
-			traceback.print_exc(file=sys.stderr)
+			echo(traceback.format_exc())
 			echo("Error reading message header: {}".format(sys.exc_info()[0]))
 			return -1
 
 
 		try:
 			body = input.read(content_len)
-
-			echo("Read %s\n%s" % (header_content_len, body))
 			response_envelope = process(body)
 
 			if response_envelope == -1:
@@ -58,8 +63,9 @@ class JsonRPCTransport:
 			elif response_envelope is not None:
 				response_body = json.dumps(response_envelope)
 				response_len = len(response_body)
-				content_type = "Content-Type: application/vscode-jsonrpc; charset=utf8"
-				resp = "Content-Length: {}\r\n{}\r\n\r\n{}".format(response_len, content_type, response_body)
+
+
+				resp = "Content-Length: {}\r\n{}\r\n\r\n{}".format(response_len, constants.lsp_content_type, response_body)
 
 			else:
 				resp = None
@@ -70,20 +76,22 @@ class JsonRPCTransport:
 				echo("============================================================")
 				echo("Respond {}".format(resp))
 				echo("============================================================")
+
 				output.write(resp)
 				output.flush()
 
+				echo("flushed")
 
 		except KeyboardInterrupt:
 			return -1
 
 		except:
-			traceback.print_exc(file=sys.stderr)
-			echo("Unexpected error: {}".format(sys.exc_info()[0]))
+			echo(traceback.format_exc())
+			echo("Transport error: {}".format(sys.exc_info()[0]))
 			return -1
 
 
-class SocketTransport(SocketServer.StreamRequestHandler):
+class SocketTransport(socketserver.StreamRequestHandler):
 	"""Simple TCP/IP socket transport."""
 	jsonrpc = JsonRPCTransport()
 
@@ -92,6 +100,6 @@ class SocketTransport(SocketServer.StreamRequestHandler):
 		output = self.wfile
 		ret = self.jsonrpc.handle(input, output)
 
-		if ret == 0:
+		if ret == -1:
 			self.end()
 			self.finish()

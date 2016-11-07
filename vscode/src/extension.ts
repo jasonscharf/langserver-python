@@ -6,11 +6,14 @@
 
 import * as net from 'net';
 
-import { Disposable, ExtensionContext, Uri, workspace } from 'vscode';
-import { LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, ErrorAction, ErrorHandler, CloseAction, TransportKind } from 'vscode-languageclient';
+import { ExtensionContext, Uri } from 'vscode';
+import { LanguageClient } from 'vscode-languageclient';
+
+import * as globals from "./globals";
+
 
 export function activate(context: ExtensionContext) {
-	const c = new LanguageClient(
+	const client = new LanguageClient(
 		'langserver-python',
 		{
 			command: 'langserver-python',
@@ -31,6 +34,8 @@ export function activate(context: ExtensionContext) {
 			},
 		}
 	);
-	context.subscriptions.push(c.start());
-}
 
+	const disposable = client.start();
+	client.onReady().then(() => globals.event.ready());
+	context.subscriptions.push(disposable);
+}

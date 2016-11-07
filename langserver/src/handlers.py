@@ -7,7 +7,7 @@ import constants
 
 from workspace import Workspace
 from docref import DocRef
-from utils import echo, sanitize, normalize_vsc_uri
+from utils import echo, sanitize, normalize_vsc_uri, make_error, make_symbol_info, get_symbol_kind
 
 
 # Global workspace instance
@@ -90,7 +90,7 @@ def hover(id, method, params):
 		# Improvement: Jedi's API calls yield some overlapping results. Hover can be implemented in multiple ways
 		for completion in completions:
 			item = {
-				"value": completion.name
+				'value': completion.name
 			}
 			items.append(item)
 			break
@@ -102,13 +102,14 @@ def hover(id, method, params):
 			if len(defs) > 0:
 				first_def = defs[0]
 				item = {
-					"value": first_def.name
+					'value': first_def.name
 				}
 				items.append(item)
 
 	except:
 		echo(traceback.format_exc())
-		echo("Error (textDocument/hover): {}".format(sys.exc_info()[0]))
+		msg = "Error (textDocument/hover): {}".format(sys.exc_info()[0])
+		return make_error(constants.error, msg)
 
 	resp = {
 		"contents": items
@@ -134,6 +135,7 @@ def definition(id, method, params):
 			if not definition.is_definition():
 				continue
 
+			# TODO (jscharf): Extract
 			uri = ''
 			if definition.module_path is not None:
 				uri = normalize_vsc_uri(definition.module_path)
@@ -158,7 +160,8 @@ def definition(id, method, params):
 
 	except:
 		echo(traceback.format_exc())
-		echo("Error (textDocument/definition): {}".format(sys.exc_info()[0]))
+		msg = "Error (textDocument/definition): {}".format(sys.exc_info()[0])
+		return make_error(constants.error, msg)
 
 	return items
 
@@ -176,7 +179,6 @@ def references(id, method, params):
 		content = workspace.open(docref.uri, False).content
 		script = jedi.api.Script(source=content, line=docref.line, column=docref.character, path=docref.uri)
 		usages = script.usages()
-
 		for usage in usages:
 			if usage.is_definition() and include_decl is not True:
 				continue
@@ -205,7 +207,8 @@ def references(id, method, params):
 
 	except:
 		echo(traceback.format_exc())
-		echo("Error (textDocument/references): {}".format(sys.exc_info()[0]))
+		msg = "Error (textDocument/references): {}".format(sys.exc_info()[0])
+		return make_error(constants.error, msg)
 
 	return refs
 
@@ -220,10 +223,12 @@ def symbol(id, method, params):
 		query_exported_defs_only = False
 		query_empty = False
 
-		# Default to 10
-		query_limit = 10
-
 		raw_query = params['query'].strip()
+
+		# Default to 10 but respect the desired limit if it's under an absolute max
+		query_limit = constants.query_limit_default
+		if 'limit' in params:
+			query_limit = min(params['limit'], constants.query_limit_absolute)
 
 		# See https://github.com/sourcegraph/langserver#lsp-method-details
 		if raw_query.startswith(constants.query_is_ext_ref):
@@ -249,43 +254,27 @@ def symbol(id, method, params):
 
 		# Search workspace for all files ending in .py
 		try:
-			for file in os.listdir(workspace.root):
-				if file.endswith(".py"):
-					candidate_files.append(os.path.join(workspace.root, file))
+
+			# TODO: Extract to workspace, virtualize entirely
+			for root, subs, files in os.walk(workspace.root):
+				for filename in files:
+					if filename.endswith(".py") is False:
+						continue
+
+					#echo('Search candidate %s' % filename)
+					filename = os.path.join(root, filename);
+					filename = sanitize(filename)
+					candidate_files.append(filename)
 
 		except IOError:
 			echo(traceback.format_exc())
-			echo("Error (textDocument/symbol): {}".format(sys.exc_info()[0]))
-
+			msg = "Error (workspace/symbol): {}".format(sys.exc_info()[0])
+			return make_error(constants.error, msg)
 
 		for file in candidate_files:
 
 			# Perf: Caching these per file + dirty-tracking may yield tangible performance benefits
 			file_symbols = jedi.api.names(path=file, encoding='utf-8', definitions=True, references=False, all_scopes=True)
-
-			# Again, note case insensitivity
-			if query in file.lower():
-
-				# TODO: Test with mixed-slash paths (i.e. NT paths)
-				head, tail = os.path.split(file)
-				uri = normalize_vsc_uri(file)
-				pos = {
-					"line": 0,
-					"character": 0
-				}
-				location = {
-					'uri': uri,
-					'range': {
-						'start': pos,
-						'end': pos
-					}
-				}
-				item = {
-					'name': tail,
-					'containerName': head,
-					'location': location
-				}
-				symbols[file] = item
 
 			seen_symbols = {}
 			for symbol in file_symbols:
@@ -346,7 +335,9 @@ def symbol(id, method, params):
 				}
 				item = {
 					'name': symbol_name,
-					'location': location
+					'kind': get_symbol_kind(symbol),
+					'location': location,
+					'containerName': parent_name
 				}
 				symbols[key] = item
 
@@ -356,9 +347,10 @@ def symbol(id, method, params):
 
 	except:
 		echo(traceback.format_exc())
-		echo("Error (textDocument/symbol): {}".format(sys.exc_info()[0]))
+		msg = "Error (workspace/symbol): {}".format(sys.exc_info()[0])
+		return make_error(constants.error, msg)
 
-	return symbols.values() or []
+	return list(symbols.values()) or []
 
 
 #

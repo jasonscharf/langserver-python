@@ -3,7 +3,7 @@ class Rutabaga:
 	is_turnip = True
 
 	def __init__(self):
-		print "Rutabaga created"
+		#print "Rutabaga created"
 
 ruta = Rutabaga()
 

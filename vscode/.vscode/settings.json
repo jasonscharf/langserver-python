@@ -7,6 +7,7 @@
 		"**/.DS_Store": true,
 		"**/node_modules": true,
 		"**/.ropeproject": true,
+		"**/.vscode-test": true,
 		"**/*.js": true,
 		"**/*.map": true,
 		"**/*.pyc": true,
