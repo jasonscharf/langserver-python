@@ -70,46 +70,30 @@ def hover(id, method, params):
 
 	try:
 		docref = DocRef(params)
-
-		# Note: Since we're currently using completions (this may change), skip 0-char results,
-		# as they will yield stdlib and other symbols as if the user was typing a new line.
-		if docref.character == 1:
-			resp = {
-				"contents": []
-			}
-			return resp
-
 		uri = sanitize(docref.uri)
 		doc = workspace.open(uri, True)
 		content = doc.content
 
-		completions = []
+		definitions = []
 		script = jedi.api.Script(source=content, line=docref.line, column=docref.character, path=docref.uri)
-		completions = script.completions()
+		definitions = script.goto_definitions()
 
-		# Improvement: Jedi's API calls yield some overlapping results. Hover can be implemented in multiple ways
-		for completion in completions:
+		for definition in definitions:
 			item = {
-				'value': completion.name
+				'value': definition.name
 			}
 			items.append(item)
 			break
 
-		# Return a sensible default. If don't find anything, look for defs and use the first definition we find
-		if len(items) == 0:
-			defs = script.goto_definitions()
-
-			if len(defs) > 0:
-				first_def = defs[0]
-				item = {
-					'value': first_def.name
-				}
-				items.append(item)
-
-	except:
-		echo(traceback.format_exc())
-		msg = "Error (textDocument/hover): {}".format(sys.exc_info()[0])
-		return make_error(constants.error, msg)
+	# Jedi throws on columns at the end of lines
+	except ValueError:
+		exception_msg = traceback.format_exc()
+		if 'valid range' in exception_msg:
+			pass
+		else:
+			echo(exception_msg)
+			msg = "Error (textDocument/hover): {}".format(sys.exc_info()[0])
+			return make_error(constants.error, msg)
 
 	resp = {
 		"contents": items

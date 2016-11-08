@@ -6,7 +6,7 @@ import sys
 		#| expect Hover
 class Hover:
 
-	#| expect is_hovering
+	#| expect bool
 	is_hovering = True
 
 
@@ -22,5 +22,5 @@ class LocalPotato:
 			  #| expect LocalPotato
 potato = LocalPotato()
 
- #| expect potato
+ #| expect LocalPotato
 potato
