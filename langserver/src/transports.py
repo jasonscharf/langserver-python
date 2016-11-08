@@ -19,7 +19,6 @@ class JsonRPCTransport:
 			has_content_length = False
 
 			while True:
-				echo("Read...")
 				header = sys.stdin.readline()
 				if len(header) == 0:
 					echo("Receive EOF")
@@ -79,7 +78,6 @@ class JsonRPCTransport:
 				output.write(resp)
 				output.flush()
 
-				echo("flushed")
 
 		except KeyboardInterrupt:
 			return -1
