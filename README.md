@@ -61,5 +61,5 @@ The `./vscode` directory contains a [Visual Studio Code](https://code.visualstud
   - Use `definitions` instead of `usages` for hover to remove false positives (simple change)
   - Proper support for type annotations, generic types, type aliases, et cetera
   - Python as a language is fairly simple to handle and parse from both the lexical and semantic viewpoints, and raw ASTs are available from the `compile` builtin
-  - Symbolic in resolution in most Python apps is simple enough that a separate, more performant language such as Go could actually resolve refs, defs, and even symbols by offhanding ASTs to them for specific, targeted resolution concerns.
+  - Symbolic in resolution in most Python apps is simple enough that a separate, more performant language such as Go could actually resolve refs, defs, and even symbols by offhanding ASTs to them for specific, targeted resolution concerns
     - This may yield significant benefits where concerns such as type checking and completeness may be secondary to basic symbolic linking and human-driven code search

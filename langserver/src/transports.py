@@ -26,6 +26,7 @@ class JsonRPCTransport:
 					return -1
 
 				header = header.strip()
+
 				# We care about "Content-Length", newlines, and JSON-RPC bodies, that's it at this point
 				if header.startswith("Content-Length:") is True:
 					content_len = int(header.split(": ")[1])
@@ -63,8 +64,6 @@ class JsonRPCTransport:
 			elif response_envelope is not None:
 				response_body = json.dumps(response_envelope)
 				response_len = len(response_body)
-
-
 				resp = "Content-Length: {}\r\n{}\r\n\r\n{}".format(response_len, constants.lsp_content_type, response_body)
 
 			else:

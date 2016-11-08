@@ -7,7 +7,7 @@ import constants
 
 from workspace import Workspace
 from docref import DocRef
-from utils import echo, sanitize, normalize_vsc_uri, make_error, make_symbol_info, get_symbol_kind
+from utils import echo, sanitize, normalize_vsc_uri, make_error, get_symbol_kind
 
 
 # Global workspace instance

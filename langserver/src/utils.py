@@ -16,11 +16,6 @@ def get_symbol_kind(definition):
 	return None
 
 
-def make_symbol_info():
-	symbol = {}
-	return symbol
-
-
 def make_error(code, message):
 	error = {}
 	error["code"] = code
