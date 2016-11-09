@@ -33,9 +33,7 @@ The `./vscode` directory contains a [Visual Studio Code](https://code.visualstud
 
 
 ## Notes
-
   - All tests are run in the context of the VS Code extension for now. This is in order to test as close to the real world situation as possible.
-
   - If you run into issues with Python3 and `pip` or `jedi` on Ubuntu, please see [this useful SO thread](http://stackoverflow.com/questions/10763440/how-to-install-python3-version-of-package-via-pip-on-ubuntu)
 
 
@@ -46,11 +44,8 @@ The `./vscode` directory contains a [Visual Studio Code](https://code.visualstud
   - See _Future Enhancements_ below for other possible perf. gains
   - IO, as always, is the biggest bottleneck, but particularly with Python. Preloading virtual workspaces from [V]FS into 'warm' processes should yield tangible benefits.
 
+
 ### Known Issues
-
-  - In this version, `textDocument/hover` uses Jedi's `usages` facility (like the alpa), although this should change to use Jedi's proper `definitions` facility, as it yields false positives on hover at the boundaries of textual symbol spans, but is a cheapish way to accomplish hover functionality.
-    - Note: Should test in Python 3 runtime vs Python 2 for perf differences
-
   - Jedi can run into an issue w/ a corrupted cache. See [here](https://github.com/davidhalter/jedi-vim/issues/251). As noted in the thread, this may be a concurrency issue, e.g. running multiple instances of VS Code w/ active Python extensions
     - I only encountered this once and in thousands of runs of Jedi and with dual instances of VS Code running, sometimes with other Python extensions running (**-jscharf**) 
       - `rm -rf ~/.cache/jedi` does indeed fix this issue
