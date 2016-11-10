@@ -6,12 +6,43 @@ import urllib.parse, urllib.error
 import constants
 
 
+def extract_textdocument_pos(definition):
+	uri = ''
+	if definition.module_path is not None:
+		uri = normalize_vsc_uri(definition.module_path)
+	elif definition.name is not None:
+		uri = normalize_vsc_uri(definition.name)
+
+	line = definition.line;
+	column = definition.column;
+
+	# Builtins lack line/col and resolvable 'module_path'
+	if line is None:
+		return None
+
+	# One position is used for the start and end of the range because VSC - at the least - works it out to mean the entire line
+	# Not sure if this is noted and/or buried in protocol.md somewhere, but I've seen it mentioned.
+	pos = {
+		"line": line - 1,
+		"character": column
+	}
+	item = {
+		"uri": uri,
+		"range": {
+			"start": pos,
+			"end": pos
+		}
+	}
+
+	return item
+
+
 def get_symbol_kind(definition):
 	if definition.type is None:
 		return None
 
-	if definition.type in constants.kinds:
-		return constants.kinds[definition.type]
+	if definition.type in constants.jedi_kinds:
+		return constants.jedi_kinds[definition.type]
 
 	return None
 

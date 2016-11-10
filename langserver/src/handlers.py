@@ -7,16 +7,26 @@ import constants
 
 from workspace import Workspace
 from docref import DocRef
-from utils import echo, sanitize, normalize_vsc_uri, make_error, get_symbol_kind
+from utils import echo, sanitize, normalize_vsc_uri, make_error, get_symbol_kind, extract_textdocument_pos
 
 
 # Global workspace instance
 workspace = Workspace()
 
-def preinit(args):
-	echo("Pre-initializing the Jedi server...")
-	# TODO (jscharf): Preload costly packages, e.g. numpy.
+def preinit(packages):
+	# Note: This is where selected packages (i.e. os and sys) can be preloaded for performance gains.
+	# Otherwise, they will be loaded lazily by users and thereafter cached by Jedi. 
+	for package in packages:
+		echo("Preloading package %s" % package)
+		try:
+			jedi.api.preload_module([package])
 
+		# Note: preload_module doesn't actually throw on invalid/unknown package names.
+		# This is kept however in case a different exception is raised.
+		except:
+			echo("Error preloading package %s" % package)
+			echo(exception_msg)
+			msg = "Preinit error: {}".format(sys.exc_info()[0])
 
 #
 # LSP initialize
@@ -100,7 +110,6 @@ def hover(id, method, params):
 	}
 	return resp
 
-
 #
 # LSP textDocument/definition
 #
@@ -119,28 +128,22 @@ def definition(id, method, params):
 			if not definition.is_definition():
 				continue
 
-			# TODO (jscharf): Extract
-			uri = ''
-			if definition.module_path is not None:
-				uri = normalize_vsc_uri(definition.module_path)
-			elif definition.name is not None:
-				uri = normalize_vsc_uri(definition.name)
+			item = extract_textdocument_pos(definition)
+			if item is not None:
+				items.append(item)
 
-			# One position is used for the start and end of the range because VSC - at the least - works it out to mean the entire line
-			# Not sure if this is noted and/or buried in protocol.md somewhere, but I've seen it mentioned.
-			pos = {
-				"line": definition.line - 1,
-				"character": definition.column
-			}
-			item = {
-				"uri": uri,
-				"range": {
-					"start": pos,
-					"end": pos
-				}
-			}
+		# Try to jump to the first assignment if no definition is found.
+		# This is useful for variable assignments that don't technically count as defs, i.e. 'foo = 5'
+		if len(items) == 0:
+			assignments = script.goto_assignments()
+			for assignment in assignments:
 
-			items.append(item)
+				item = extract_textdocument_pos(assignment)
+				if item is not None:
+					items.append(item)
+
+				break
+
 
 	except:
 		echo(traceback.format_exc())
@@ -163,31 +166,16 @@ def references(id, method, params):
 		content = workspace.open(docref.uri, False).content
 		script = jedi.api.Script(source=content, line=docref.line, column=docref.character, path=docref.uri)
 		usages = script.usages()
+
 		for usage in usages:
 			if usage.is_definition() and include_decl is not True:
 				continue
 			if usage.line is None:
 				continue
 
-			uri = ''
-			if usage.module_path is not None:
-				uri = normalize_vsc_uri(usage.module_path)
-			elif usage.name is not None:
-				uri = normalize_vsc_uri(usage.name)
-
-			pos = {
-				"line": usage.line - 1,
-				"character": usage.column
-			}
-			item = {
-				"uri": uri,
-				"range": {
-					"start": pos,
-					"end": pos
-				}
-			}
-
-			refs.append(item)
+			item = extract_textdocument_pos(usage)
+			if item is not None:
+				refs.append(item)
 
 	except:
 		echo(traceback.format_exc())
@@ -215,6 +203,7 @@ def symbol(id, method, params):
 			query_limit = min(params['limit'], constants.query_limit_absolute)
 
 		# See https://github.com/sourcegraph/langserver#lsp-method-details
+		# TODO: Integrate 'vendored' logic based on vendored path
 		if raw_query.startswith(constants.query_is_ext_ref):
 			query = raw_query[len(constants.query_is_ext_ref) + 1:]
 			query_external_refs_only = True
@@ -239,13 +228,12 @@ def symbol(id, method, params):
 		# Search workspace for all files ending in .py
 		try:
 
-			# TODO: Extract to workspace, virtualize entirely
+			# TODO: Extract to workspace, virtualize entirely (for SG backend)
 			for root, subs, files in os.walk(workspace.root):
 				for filename in files:
 					if filename.endswith(".py") is False:
 						continue
 
-					#echo('Search candidate %s' % filename)
 					filename = os.path.join(root, filename);
 					filename = sanitize(filename)
 					candidate_files.append(filename)
@@ -305,6 +293,7 @@ def symbol(id, method, params):
 				if key in symbols:
 					continue
 
+
 				uri = normalize_vsc_uri(symbol.module_path)
 				pos = {
 					"line": symbol.line - 1,
@@ -319,10 +308,15 @@ def symbol(id, method, params):
 				}
 				item = {
 					'name': symbol_name,
-					'kind': get_symbol_kind(symbol),
 					'location': location,
 					'containerName': parent_name
 				}
+
+				# Note: Silent failure in VS Code if kind is null!
+				kind = get_symbol_kind(symbol)
+				if kind is not None:
+					item['kind'] = kind
+
 				symbols[key] = item
 
 				# Enforce query limits

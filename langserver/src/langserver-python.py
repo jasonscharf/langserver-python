@@ -26,6 +26,9 @@ def serve(args):
 		server = transports.JsonRPCTransport()
 		echo("Python language server. Mode: stdio")
 
+		# Note: Init hook for "preinitializing" common/costly packages. Doing so yields significant performance gains if done ahead of user consumption.
+		preinit(['os', 'sys'])
+
 		binstdout = io.open(sys.stdout.fileno(), 'wb', 0)
 		output = io.TextIOWrapper(binstdout, encoding=sys.stdout.encoding, newline='')
 

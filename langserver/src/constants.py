@@ -24,7 +24,7 @@ lsp_content_type = "Content-Type: application/vscode-jsonrpc; charset=utf8"
 
 
 # LSP kinds
-kinds = {
+vsc_kind = {
 	'file': 1,
 	'module': 2,
 	'namespace': 3,
@@ -43,4 +43,68 @@ kinds = {
 	'number': 16,
 	'array': 18,
 	'boolean': 17
+}
+
+
+# Jedi kinds from string
+jedi_kinds = {
+
+	# Note: Omissions due to unknown mappings:
+	# 'statement': 0,
+	# 'keyword': 0,
+
+	# Jedi type 'none' maps to vsc variable
+	'none': vsc_kind['constant'],
+	'type': vsc_kind['class'],
+	'tuple': vsc_kind['class'],
+
+	# 'dict' => 'class'
+	'dict': vsc_kind['class'],
+	'dictionary': vsc_kind['class'],
+
+	# Classes / instances
+	'class': vsc_kind['class'],
+	'instance': vsc_kind['variable'],
+
+	# Functions
+	'function': vsc_kind['function'],
+	'lambda': vsc_kind['function'],
+	'generator': vsc_kind['function'],
+	'method': vsc_kind['method'],
+
+	# Builtins
+	'builtin': vsc_kind['class'],
+	'builtinfunction': vsc_kind['function'],
+
+	# Scopes
+	'file': vsc_kind['file'],
+	'namespace': vsc_kind['namespace'],
+	'module': vsc_kind['module'],
+
+	# Regular Python types
+	'funcdef': vsc_kind['function'],
+	'property': vsc_kind['property'],
+	'import': vsc_kind['module'],
+
+	# Primitives (Python-style)
+	'constant': vsc_kind['constant'],
+	'variable': vsc_kind['variable'],
+	'value': vsc_kind['variable'],
+	'param': vsc_kind['variable'],
+	'boolean': vsc_kind['boolean'],
+	'int': vsc_kind['number'],
+	'longlean': vsc_kind['number'],
+	'float': vsc_kind['number'],
+	'complex': vsc_kind['number'],
+	'string': vsc_kind['string'],
+	'unicode': vsc_kind['string'],
+	'list': vsc_kind['array'],
+
+	# Special Python types
+	'xrange': vsc_kind['class'],
+	'slice': vsc_kind['class'],
+	'traceback': vsc_kind['class'],
+	'frame': vsc_kind['class'],
+	'buffer': vsc_kind['class'],
+	'dictproxy': vsc_kind['class'],
 }
